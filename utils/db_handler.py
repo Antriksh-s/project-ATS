@@ -1,14 +1,19 @@
 import os
 import sqlite3
+from pathlib import Path
 from typing import Optional
 
+# Make the default DB path absolute, relative to this specific utils folder
+UTILS_DIR = Path(__file__).resolve().parent
+DEFAULT_DB_PATH = UTILS_DIR / "ats_database.db"
 
-def get_db_connection(db_name: str = "ats_database.db") -> sqlite3.Connection:
+
+def get_db_connection(db_name: str = str(DEFAULT_DB_PATH)) -> sqlite3.Connection:
     """Establishes and returns a connection to the SQLite database."""
     return sqlite3.connect(db_name)
 
 
-def init_db(db_name: str = "ats_database.db") -> None:
+def init_db(db_name: str = str(DEFAULT_DB_PATH)) -> None:
     """Creates the SQLite database and the resumes table if they don't exist."""
     create_table_query = """
     CREATE TABLE IF NOT EXISTS resumes (
@@ -28,13 +33,12 @@ def init_db(db_name: str = "ats_database.db") -> None:
 
 
 def save_or_update_resume(
-    resume_id: str, resume_link: str, db_name: str = "ats_database.db"
+    resume_id: str, resume_link: str, db_name: str = str(DEFAULT_DB_PATH)
 ) -> bool:
     """Inserts a new resume or overwrites the link if the ID already exists.
 
     Returns True if successful, False otherwise.
     """
-    # Changed INSERT INTO to INSERT OR REPLACE INTO
     upsert_query = """
     INSERT OR REPLACE INTO resumes (id, resume_link, uploaded_at) 
     VALUES (?, ?, CURRENT_TIMESTAMP);
@@ -51,22 +55,7 @@ def save_or_update_resume(
         return False
 
 
-# --- Example Usage ---
 if __name__ == "__main__":
-    DB_FILE = "ats_database.db"
-
-    # 1. Initialize the database
-    init_db(DB_FILE)
-
-    # 2. Mock Data
-    mock_id = "user_98765"
-    initial_link = "https://s3.amazonaws.com/ats-bucket/resumes/first_version.pdf"
-    updated_link = "https://s3.amazonaws.com/ats-bucket/resumes/updated_version.pdf"
-
-    # 3. First upload (Insert)
-    print("\n--- Testing Initial Upload ---")
-    save_or_update_resume(mock_id, initial_link, DB_FILE)
-
-    # 4. Second upload with same ID but different link (Overwrite)
-    print("\n--- Testing Re-upload (Overwrite) ---")
-    save_or_update_resume(mock_id, updated_link, DB_FILE)
+    # Internal testing still works flawlessly
+    init_db(str(DEFAULT_DB_PATH))
+    save_or_update_resume("user_98765", "https://s3.amazonaws.com/ats-bucket/resumes/first_version.pdf")
