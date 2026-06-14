@@ -27,27 +27,25 @@ def init_db(db_name: str = "ats_database.db") -> None:
         print(f"Error initializing database: {e}")
 
 
-def insert_resume(
+def save_or_update_resume(
     resume_id: str, resume_link: str, db_name: str = "ats_database.db"
 ) -> bool:
-    """Inserts a new resume record into the database.
+    """Inserts a new resume or overwrites the link if the ID already exists.
 
     Returns True if successful, False otherwise.
     """
-    insert_query = """
-    INSERT INTO resumes (id, resume_link) 
-    VALUES (?, ?);
+    # Changed INSERT INTO to INSERT OR REPLACE INTO
+    upsert_query = """
+    INSERT OR REPLACE INTO resumes (id, resume_link, uploaded_at) 
+    VALUES (?, ?, CURRENT_TIMESTAMP);
     """
     try:
         with get_db_connection(db_name) as conn:
             cursor = conn.cursor()
-            cursor.execute(insert_query, (resume_id, resume_link))
+            cursor.execute(upsert_query, (resume_id, resume_link))
             conn.commit()
-        print(f"Successfully inserted resume ID: {resume_id}")
+        print(f"Successfully saved/updated resume ID: {resume_id}")
         return True
-    except sqlite3.IntegrityError:
-        print(f"Error: A resume with ID '{resume_id}' already exists.")
-        return False
     except sqlite3.Error as e:
         print(f"Database error: {e}")
         return False
@@ -57,23 +55,18 @@ def insert_resume(
 if __name__ == "__main__":
     DB_FILE = "ats_database.db"
 
-    # 1. Initialize the database (Run this once at application startup)
+    # 1. Initialize the database
     init_db(DB_FILE)
 
-    # 2. Simulate data coming from your UI / backend routing
-    mock_id_1 = "user_98765"
-    mock_link_1 = "https://s3.amazonaws.com/ats-bucket/resumes/user_98765_cv.pdf"
+    # 2. Mock Data
+    mock_id = "user_98765"
+    initial_link = "https://s3.amazonaws.com/ats-bucket/resumes/first_version.pdf"
+    updated_link = "https://s3.amazonaws.com/ats-bucket/resumes/updated_version.pdf"
 
-    mock_id_2 = "user_12345"
-    mock_link_2 = (
-        "https://storage.googleapis.com/ats-resumes/cv_12345.docx"
-    )
+    # 3. First upload (Insert)
+    print("\n--- Testing Initial Upload ---")
+    save_or_update_resume(mock_id, initial_link, DB_FILE)
 
-    # 3. Push data to the DB
-    print("\n--- Inserting Records ---")
-    insert_resume(mock_id_1, mock_link_1, DB_FILE)
-    insert_resume(mock_id_2, mock_link_2, DB_FILE)
-
-    # Test handling duplicate IDs
-    print("\n--- Testing Duplicate Handling ---")
-    insert_resume(mock_id_1, mock_link_1, DB_FILE)
+    # 4. Second upload with same ID but different link (Overwrite)
+    print("\n--- Testing Re-upload (Overwrite) ---")
+    save_or_update_resume(mock_id, updated_link, DB_FILE)
